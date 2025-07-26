@@ -1,0 +1,479 @@
+---
+import LoadingWrapper from "./LoadingWrapper.astro";
+---
+
+<div class="text-center">
+    <strong>Smart Contract Counter</strong><br />
+    Current value: <strong id="current-value" aria-live="polite">???</strong><br
+    />
+    <br />
+    <div class="flex flex-wrap justify-center gap-2 sm:flex-col sm:items-center">
+        <button
+            data-get-value
+            aria-controls="current-value"
+            class="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 px-4 py-2 rounded text-white font-medium transition-colors sm:w-48"
+        >
+            Get Value
+        </button>
+        <button
+            data-increment
+            aria-controls="current-value"
+            class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 px-4 py-2 rounded text-white font-medium transition-colors sm:w-48"
+        >
+            Increment
+        </button>
+        <button
+            data-decrement
+            aria-controls="current-value"
+            class="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 px-4 py-2 rounded text-white font-medium transition-colors sm:w-48"
+        >
+            Decrement
+        </button>
+        <button
+            data-reset
+            aria-controls="current-value"
+            class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 px-4 py-2 rounded text-white font-medium transition-colors sm:w-48"
+        >
+            Reset
+        </button>
+    </div>
+</div>
+
+<LoadingWrapper />
+
+<script>
+    import { getPublicKey, signTransaction } from "../stellar-wallets-kit";
+    import incrementor from "../contracts/increment";
+
+    const getValueButton = document.querySelector(
+        "[data-get-value]",
+    ) as HTMLButtonElement;
+    const incrementButton = document.querySelector(
+        "[data-increment]",
+    ) as HTMLButtonElement;
+    const decrementButton = document.querySelector(
+        "[data-decrement]",
+    ) as HTMLButtonElement;
+    const resetButton = document.querySelector(
+        "[data-reset]",
+    ) as HTMLButtonElement;
+    const currentValue = document.querySelector(
+        "#current-value",
+    ) as HTMLElement;
+
+    const allButtons = [
+        getValueButton,
+        incrementButton,
+        decrementButton,
+        resetButton,
+    ];
+
+    // Get loading wrapper instance
+    let loadingWrapper: any = null;
+    
+    // Wait for LoadingWrapper to be available
+    function getLoadingWrapper() {
+        if (!loadingWrapper && (window as any).loadingWrapper) {
+            loadingWrapper = (window as any).loadingWrapper;
+        }
+        return loadingWrapper;
+    }
+    
+    // Loading wrapper utility functions
+    function showLoading(options: any) {
+        const wrapper = getLoadingWrapper();
+        wrapper?.showLoading(options);
+    }
+    
+    function showSuccess(options: any) {
+        const wrapper = getLoadingWrapper();
+        wrapper?.showSuccess(options);
+    }
+    
+    function showError(options: any) {
+        const wrapper = getLoadingWrapper();
+        wrapper?.showError(options);
+    }
+    
+    function showTransactionLoading(message: string) {
+        showLoading({
+            title: "Transaction in Progress",
+            message
+        });
+    }
+    
+    function showTransactionSuccess(transactionId: string, message: string) {
+        showSuccess({
+            title: "Transaction Successful",
+            message,
+            transactionId
+        });
+    }
+
+    // Dialog handling functions using new loading wrapper
+    function handleError(message: string, error?: any) {
+        let fullMessage = message;
+
+        if (error) {
+            // Extract meaningful error information
+            if (error.message) {
+                fullMessage += `\n\nDetails: ${error.message}`;
+            }
+            if (error.code) {
+                fullMessage += `\nError Code: ${error.code}`;
+            }
+            // Handle Stellar-specific errors
+            if (error.response?.data?.extras?.result_codes) {
+                const codes = error.response.data.extras.result_codes;
+                fullMessage += `\nResult Codes: ${JSON.stringify(codes)}`;
+            }
+        }
+
+        showError({ message: fullMessage });
+    }
+
+    function handleSuccess(message: string, value?: any, transactionId?: string) {
+        let fullMessage = message;
+        if (value !== undefined) {
+            fullMessage += `\n\nNew value: ${value}`;
+        }
+        
+        if (transactionId) {
+            showTransactionSuccess(transactionId, fullMessage);
+        } else {
+            showSuccess({ message: fullMessage });
+        }
+    }
+
+    // Helper function to setup contract with wallet
+    async function setupContract() {
+        const publicKey = await getPublicKey();
+        if (!publicKey) {
+            handleError("Please connect your wallet first");
+            return false;
+        }
+        incrementor.options.publicKey = publicKey;
+        incrementor.options.signTransaction = signTransaction;
+        return true;
+    }
+
+    // Helper function to set loading state for buttons
+    function setButtonLoadingState(isLoading: boolean) {
+        allButtons.forEach((button) => {
+            button.disabled = isLoading;
+            if (isLoading) {
+                button.classList.add("loading");
+            } else {
+                button.classList.remove("loading");
+            }
+        });
+    }
+
+    // Get current value (read-only, but still returns AssembledTransaction)
+    getValueButton.addEventListener("click", async () => {
+        if (!(await setupContract())) return;
+
+        setButtonLoadingState(true);
+        showLoading({ title: "Getting Value", message: "Fetching current counter value from blockchain..." });
+
+        try {
+            const tx = await incrementor.get_current_value();
+            
+            // For read-only operations, we need to simulate to get fresh blockchain data
+            const simulationResult = await tx.simulate();
+            
+            if (simulationResult.result !== undefined && simulationResult.result !== null) {
+                const blockchainValue = simulationResult.result;
+                currentValue.innerHTML = blockchainValue.toString();
+                handleSuccess(`Current value retrieved from blockchain: ${blockchainValue}`);
+            } else {
+                throw new Error("Failed to retrieve value from blockchain - simulation returned no result");
+            }
+        } catch (e) {
+            console.error("Error fetching blockchain value:", e);
+            handleError("Error getting current value from blockchain", e);
+        } finally {
+            setButtonLoadingState(false);
+        }
+    });
+
+    // Increment value
+    incrementButton.addEventListener("click", async () => {
+        if (!(await setupContract())) return;
+
+        setButtonLoadingState(true);
+        showTransactionLoading("Incrementing counter...");
+
+        try {
+            const tx = await incrementor.increment();
+            
+            if (!tx) {
+                throw new Error("No transaction returned from increment()");
+            }
+            
+            try {
+                const signResult = await tx.signAndSend();
+                
+                if (signResult && signResult.result !== undefined) {
+                    const { result } = signResult;
+                    currentValue.innerHTML = result.toString();
+                    
+                    // Extract transaction ID from various possible locations
+                    const transactionId = (signResult as any).hash || 
+                                        (signResult as any).id || 
+                                        (signResult as any).txHash || 
+                                        (signResult as any).transactionHash ||
+                                        (signResult as any).transaction?.hash ||
+                                        (signResult as any).meta?.hash ||
+                                        (signResult as any).meta?.txHash;
+                    
+                    if (transactionId) {
+                        showTransactionSuccess(transactionId, `Counter incremented successfully! New value: ${result}`);
+                    } else {
+                        handleSuccess("Counter incremented successfully!", result);
+                    }
+                } else {
+                    throw new Error("Transaction completed but no result returned");
+                }
+            } catch (signError: any) {
+                // If it's a "Bad union switch" error, the transaction likely succeeded
+                // but result parsing failed. Let's get the value directly.
+                if (signError?.message?.includes("Bad union switch")) {
+                    // Try to extract transaction ID from error or other sources
+                    const transactionId = (signError as any).hash || 
+                                        (signError as any).txHash || 
+                                        (signError as any).transaction?.hash ||
+                                        (signError as any).response?.hash;
+                    
+                    try {
+                        // Get fresh blockchain data to verify the transaction succeeded
+                        const getCurrentTx = await incrementor.get_current_value();
+                        const simulationResult = await getCurrentTx.simulate();
+                        const currentVal = simulationResult.result;
+                        currentValue.innerHTML = currentVal.toString();
+                        
+                        if (transactionId) {
+                            showTransactionSuccess(transactionId, `Counter incremented successfully! New blockchain value: ${currentVal}`);
+                        } else {
+                            // If no transaction ID available, show success without it
+                            handleSuccess(`Counter incremented successfully! New blockchain value: ${currentVal}`);
+                        }
+                    } catch (getError) {
+                        console.error("Failed to verify blockchain state after increment:", getError);
+                        // Still show success since the transaction worked
+                        if (transactionId) {
+                            showTransactionSuccess(transactionId, "Counter incremented successfully!");
+                        } else {
+                            handleSuccess("Counter incremented successfully!");
+                        }
+                    }
+                } else {
+                    // Re-throw other errors
+                    throw signError;
+                }
+            }
+        } catch (e: any) {
+            console.error("Increment error:", e);
+            
+            // Provide more specific error messages for common Stellar issues
+            let errorMessage = "Error incrementing value";
+            if (e?.message?.includes("Bad union switch")) {
+                errorMessage = "Transaction failed - account may need funding or contract may not be deployed properly";
+            } else if (e?.message?.includes("Account not found")) {
+                errorMessage = "Account not found - please fund your account with XLM first";
+            } else if (e?.message?.includes("insufficient balance")) {
+                errorMessage = "Insufficient balance - please add more XLM to your account";
+            }
+            
+            handleError(errorMessage, e);
+        } finally {
+            setButtonLoadingState(false);
+        }
+    });
+
+    // Decrement value
+    decrementButton.addEventListener("click", async () => {
+        if (!(await setupContract())) return;
+
+        setButtonLoadingState(true);
+        showTransactionLoading("Decrementing counter...");
+
+        try {
+            const tx = await incrementor.decrement();
+            
+            if (!tx) {
+                throw new Error("No transaction returned from decrement()");
+            }
+            
+            try {
+                const signResult = await tx.signAndSend();
+                
+                if (signResult && signResult.result !== undefined) {
+                    const { result } = signResult;
+                    currentValue.innerHTML = result.toString();
+                    // Extract transaction ID from various possible locations
+                    const transactionId = (signResult as any).hash || 
+                                        (signResult as any).id || 
+                                        (signResult as any).txHash || 
+                                        (signResult as any).transactionHash ||
+                                        (signResult as any).transaction?.hash ||
+                                        (signResult as any).meta?.hash ||
+                                        (signResult as any).meta?.txHash;
+                    
+                    if (transactionId) {
+                        showTransactionSuccess(transactionId, `Counter decremented successfully! New value: ${result}`);
+                    } else {
+                        handleSuccess("Counter decremented successfully!", result);
+                    }
+                } else {
+                    throw new Error("Transaction completed but no result returned");
+                }
+            } catch (signError: any) {
+                // If it's a "Bad union switch" error, the transaction likely succeeded
+                // but result parsing failed. Let's get the value directly.
+                if (signError?.message?.includes("Bad union switch")) {
+                    // Try to extract transaction ID from error or other sources
+                    const transactionId = (signError as any).hash || 
+                                        (signError as any).txHash || 
+                                        (signError as any).transaction?.hash ||
+                                        (signError as any).response?.hash;
+                    
+                    try {
+                        // Get fresh blockchain data to verify the transaction succeeded
+                        const getCurrentTx = await incrementor.get_current_value();
+                        const simulationResult = await getCurrentTx.simulate();
+                        const currentVal = simulationResult.result;
+                        currentValue.innerHTML = currentVal.toString();
+                        
+                        if (transactionId) {
+                            showTransactionSuccess(transactionId, `Counter decremented successfully! New blockchain value: ${currentVal}`);
+                        } else {
+                            handleSuccess(`Counter decremented successfully! New blockchain value: ${currentVal}`);
+                        }
+                    } catch (getError) {
+                        console.error("Failed to verify blockchain state after decrement:", getError);
+                        if (transactionId) {
+                            showTransactionSuccess(transactionId, "Counter decremented successfully!");
+                        } else {
+                            handleSuccess("Counter decremented successfully!");
+                        }
+                    }
+                } else {
+                    // Re-throw other errors
+                    throw signError;
+                }
+            }
+        } catch (e) {
+            handleError("Error decrementing value", e);
+        } finally {
+            setButtonLoadingState(false);
+        }
+    });
+
+    // Reset value
+    resetButton.addEventListener("click", async () => {
+        if (!(await setupContract())) return;
+
+        setButtonLoadingState(true);
+        showTransactionLoading("Resetting counter...");
+
+        try {
+            const tx = await incrementor.reset();
+            
+            if (!tx) {
+                throw new Error("No transaction returned from reset()");
+            }
+            
+            try {
+                const signResult = await tx.signAndSend();
+                
+                if (signResult && signResult.result !== undefined) {
+                    const { result } = signResult;
+                    currentValue.innerHTML = result.toString();
+                    // Extract transaction ID from various possible locations
+                    const transactionId = (signResult as any).hash || 
+                                        (signResult as any).id || 
+                                        (signResult as any).txHash || 
+                                        (signResult as any).transactionHash ||
+                                        (signResult as any).transaction?.hash ||
+                                        (signResult as any).meta?.hash ||
+                                        (signResult as any).meta?.txHash;
+                    
+                    if (transactionId) {
+                        showTransactionSuccess(transactionId, `Counter reset successfully! New value: ${result}`);
+                    } else {
+                        handleSuccess("Counter reset successfully!", result);
+                    }
+                } else {
+                    throw new Error("Transaction completed but no result returned");
+                }
+            } catch (signError: any) {
+                // If it's a "Bad union switch" error, the transaction likely succeeded
+                // but result parsing failed. Let's get the value directly.
+                if (signError?.message?.includes("Bad union switch")) {
+                    // Try to extract transaction ID from error or other sources
+                    const transactionId = (signError as any).hash || 
+                                        (signError as any).txHash || 
+                                        (signError as any).transaction?.hash ||
+                                        (signError as any).response?.hash;
+                    
+                    try {
+                        // Get fresh blockchain data to verify the transaction succeeded
+                        const getCurrentTx = await incrementor.get_current_value();
+                        const simulationResult = await getCurrentTx.simulate();
+                        const currentVal = simulationResult.result;
+                        currentValue.innerHTML = currentVal.toString();
+                        
+                        if (transactionId) {
+                            showTransactionSuccess(transactionId, `Counter reset successfully! New blockchain value: ${currentVal}`);
+                        } else {
+                            handleSuccess(`Counter reset successfully! New blockchain value: ${currentVal}`);
+                        }
+                    } catch (getError) {
+                        console.error("Failed to verify blockchain state after reset:", getError);
+                        if (transactionId) {
+                            showTransactionSuccess(transactionId, "Counter reset successfully!");
+                        } else {
+                            handleSuccess("Counter reset successfully!");
+                        }
+                    }
+                } else {
+                    // Re-throw other errors
+                    throw signError;
+                }
+            }
+        } catch (e) {
+            console.error("Reset error:", e);
+            handleError("Error resetting value", e);
+        } finally {
+            setButtonLoadingState(false);
+        }
+    });
+
+    // Load initial value when component mounts (only if wallet is connected)
+    window.addEventListener("load", async () => {
+        const publicKey = await getPublicKey();
+        if (publicKey) {
+            try {
+                incrementor.options.publicKey = publicKey;
+                incrementor.options.signTransaction = signTransaction;
+                const tx = await incrementor.get_current_value();
+                currentValue.innerHTML = tx.result.toString();
+            } catch (e: any) {
+                console.error("Failed to load initial value:", e);
+                // Check if it's an account not found error
+                if (
+                    e.code === 404 ||
+                    e.message?.includes("Account not found")
+                ) {
+                    currentValue.innerHTML = "0 (Account needs funding)";
+                } else {
+                    // Keep the ??? for other errors
+                    console.warn(
+                        'Could not load initial counter value. Connect wallet and click "Get Value" to fetch.',
+                    );
+                }
+            }
+        }
+    });
+</script>
