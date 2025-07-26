@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* Root styling for consistent background and theme */
+:root {
+  --accent-dark: 124, 58, 237;
+  --accent-light: 196, 181, 253;
+  --accent-gradient: linear-gradient(45deg, rgb(var(--accent-dark)), rgb(var(--accent-light)));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: system-ui, sans-serif;
+  background: #13151a;
+  background-size: 224px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0c0f14 0%, #1a1f2e 50%, #13151a 100%);
+  color: white;
+}
+
+code {
+  font-family: Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono,
+    Bitstream Vera Sans Mono, Courier New, monospace;
+}
