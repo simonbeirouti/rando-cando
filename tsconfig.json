@@ -1,5 +1,18 @@
 {
   "extends": "astro/tsconfigs/strictest",
+  "compilerOptions": {
+    "module": "es2022",
+    "target": "es2022",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
   "exclude": [
     "packages"
   ]

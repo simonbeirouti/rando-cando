@@ -1,0 +1,17 @@
+---
+import CounterReact from "./CounterReact.tsx";
+import LoadingWrapper from "./LoadingWrapper.astro";
+---
+
+<CounterReact client:visible />
+<LoadingWrapper />
+
+<script>
+    import { getPublicKey, signTransaction } from "../stellar-wallets-kit";
+    import incrementor from "../contracts/increment";
+    
+    // Expose wallet functions and contract globally for React component
+    window.getPublicKey = getPublicKey;
+    window.signTransaction = signTransaction;
+    window.incrementor = incrementor;
+</script>

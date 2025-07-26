@@ -1,0 +1,14 @@
+---
+import NavigationReact from "./NavigationReact.tsx";
+---
+
+<NavigationReact client:load />
+
+<script>
+  import { getPublicKey, connect, disconnect } from "../stellar-wallets-kit";
+  
+  // Expose wallet functions globally for React component
+  window.getPublicKey = getPublicKey;
+  window.connect = connect;
+  window.disconnect = disconnect;
+</script>

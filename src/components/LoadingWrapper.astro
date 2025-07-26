@@ -1,0 +1,308 @@
+---
+export interface Props {
+  id?: string;
+  className?: string;
+}
+
+const { id = "loading-wrapper", className = "" } = Astro.props;
+---
+
+<div id={id} class={`loading-wrapper ${className}`}>
+  <!-- Loading State -->
+  <div class="loading-state loading-hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div class="text-center">
+      <div class="loading-spinner mb-4">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+      </div>
+      <div class="loading-title text-xl font-semibold text-white mb-2">Processing...</div>
+      <div class="loading-message text-sm text-gray-200">Please wait while we process your request.</div>
+    </div>
+  </div>
+
+  <!-- Success State -->
+  <div class="success-state loading-hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div class="text-center max-w-md mx-4">
+      <div class="text-6xl mb-4">✅</div>
+      <div class="success-title text-xl font-semibold text-white mb-2">Success!</div>
+      <div class="success-message text-sm text-gray-200 mb-4">Operation completed successfully.</div>
+      <button class="success-close-btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div class="error-state loading-hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div class="text-center max-w-md mx-4">
+      <div class="text-6xl mb-4">⚠️</div>
+      <div class="error-title text-xl font-semibold text-white mb-2">Error</div>
+      <div class="error-message text-sm text-gray-200 mb-4">An error occurred while processing your request.</div>
+      <button class="error-close-btn bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-medium transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  interface LoadingOptions {
+    title?: string;
+    message?: string;
+    onComplete?: () => void;
+  }
+
+  interface SuccessOptions {
+    title?: string;
+    message?: string;
+    onClose?: () => void;
+  }
+
+  interface ErrorOptions {
+    title?: string;
+    message?: string;
+    onClose?: () => void;
+  }
+
+  class LoadingWrapper {
+    private wrapper: HTMLElement;
+    private loadingState: HTMLElement;
+    private successState: HTMLElement;
+    private errorState: HTMLElement;
+    private pendingSuccessOptions: SuccessOptions | null = null;
+    private pendingErrorOptions: ErrorOptions | null = null;
+
+    constructor(wrapperId: string = "loading-wrapper") {
+      this.wrapper = document.getElementById(wrapperId) as HTMLElement;
+      if (!this.wrapper) {
+        throw new Error(`LoadingWrapper: Element with id "${wrapperId}" not found`);
+      }
+
+      this.loadingState = this.wrapper.querySelector('.loading-state') as HTMLElement;
+      this.successState = this.wrapper.querySelector('.success-state') as HTMLElement;
+      this.errorState = this.wrapper.querySelector('.error-state') as HTMLElement;
+
+      this.setupEventListeners();
+    }
+
+    private setupEventListeners() {
+      // Success close button
+      const successCloseBtn = this.successState.querySelector('.success-close-btn') as HTMLElement;
+      successCloseBtn?.addEventListener('click', () => this.hideSuccess());
+
+      // Error close button
+      const errorCloseBtn = this.errorState.querySelector('.error-close-btn') as HTMLElement;
+      errorCloseBtn?.addEventListener('click', () => this.hideError());
+
+      // Close on backdrop click
+      this.loadingState.addEventListener('click', (e) => {
+        if (e.target === this.loadingState) {
+          this.hideLoading();
+          // Show pending success/error state if available
+          if (this.pendingSuccessOptions) {
+            this.showSuccess(this.pendingSuccessOptions);
+            this.pendingSuccessOptions = null;
+          } else if (this.pendingErrorOptions) {
+            this.showError(this.pendingErrorOptions);
+            this.pendingErrorOptions = null;
+          }
+        }
+      });
+      
+      this.successState.addEventListener('click', (e) => {
+        if (e.target === this.successState) {
+          this.hideSuccess();
+        }
+      });
+      
+      this.errorState.addEventListener('click', (e) => {
+        if (e.target === this.errorState) {
+          this.hideError();
+        }
+      });
+
+      // Close on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.hideAll();
+        }
+      });
+    }
+
+    showLoading(options: LoadingOptions = {}) {
+      const { title = "Processing...", message = "Please wait while we process your request." } = options;
+      
+      this.hideAll();
+      
+      const titleEl = this.loadingState.querySelector('.loading-title') as HTMLElement;
+      const messageEl = this.loadingState.querySelector('.loading-message') as HTMLElement;
+      
+      if (titleEl) titleEl.textContent = title;
+      if (messageEl) messageEl.textContent = message;
+      
+      this.loadingState.classList.remove('loading-hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    showSuccess(options: SuccessOptions = {}) {
+      const { 
+        title = "Success!", 
+        message = "Operation completed successfully.",
+        onClose
+      } = options;
+      
+      this.hideAll();
+      
+      const titleEl = this.successState.querySelector('.success-title') as HTMLElement;
+      const messageEl = this.successState.querySelector('.success-message') as HTMLElement;
+      
+      if (titleEl) titleEl.textContent = title;
+      if (messageEl) messageEl.textContent = message;
+      
+      this.successState.classList.remove('loading-hidden');
+      document.body.style.overflow = 'hidden';
+
+      // Store onClose callback
+      if (onClose) {
+        this.successState.setAttribute('data-on-close', 'true');
+        (this.successState as any)._onClose = onClose;
+      }
+    }
+
+    showError(options: ErrorOptions = {}) {
+      const { 
+        title = "Error", 
+        message = "An error occurred while processing your request.",
+        onClose
+      } = options;
+      
+      this.hideAll();
+      
+      const titleEl = this.errorState.querySelector('.error-title') as HTMLElement;
+      const messageEl = this.errorState.querySelector('.error-message') as HTMLElement;
+      
+      if (titleEl) titleEl.textContent = title;
+      if (messageEl) messageEl.textContent = message;
+      
+      this.errorState.classList.remove('loading-hidden');
+      document.body.style.overflow = 'hidden';
+
+      // Store onClose callback
+      if (onClose) {
+        this.errorState.setAttribute('data-on-close', 'true');
+        (this.errorState as any)._onClose = onClose;
+      }
+    }
+
+    hideLoading() {
+      this.loadingState.classList.add('loading-hidden');
+      document.body.style.overflow = '';
+    }
+
+    hideSuccess() {
+      const onClose = (this.successState as any)._onClose;
+      this.successState.classList.add('loading-hidden');
+      document.body.style.overflow = '';
+      if (onClose) {
+        onClose();
+        delete (this.successState as any)._onClose;
+      }
+    }
+
+    hideError() {
+      const onClose = (this.errorState as any)._onClose;
+      this.errorState.classList.add('loading-hidden');
+      document.body.style.overflow = '';
+      if (onClose) {
+        onClose();
+        delete (this.errorState as any)._onClose;
+      }
+    }
+
+    hideAll() {
+      this.hideLoading();
+      this.hideSuccess();
+      this.hideError();
+      this.pendingSuccessOptions = null;
+      this.pendingErrorOptions = null;
+    }
+
+    // Set pending states that will be shown when loading is dismissed
+    setPendingSuccess(options: SuccessOptions) {
+      this.pendingSuccessOptions = options;
+      this.pendingErrorOptions = null; // Clear any pending error
+    }
+
+    setPendingError(options: ErrorOptions) {
+      this.pendingErrorOptions = options;
+      this.pendingSuccessOptions = null; // Clear any pending success
+    }
+
+    // Utility method for async operations
+    async wrap<T>(
+      operation: () => Promise<T>,
+      options: {
+        loading?: LoadingOptions;
+        success?: (result: T) => SuccessOptions;
+        error?: (error: any) => ErrorOptions;
+      } = {}
+    ): Promise<T | null> {
+      try {
+        this.showLoading(options.loading);
+        const result = await operation();
+        
+        if (options.success) {
+          this.showSuccess(options.success(result));
+        } else {
+          this.hideLoading();
+        }
+        
+        return result;
+      } catch (error) {
+        console.error('LoadingWrapper operation failed:', error);
+        
+        if (options.error) {
+          this.showError(options.error(error));
+        } else {
+          this.showError({
+            message: error instanceof Error ? error.message : 'An unexpected error occurred'
+          });
+        }
+        
+        return null;
+      }
+    }
+  }
+
+  // Export for global use
+  (window as any).LoadingWrapper = LoadingWrapper;
+
+  // Auto-initialize if default wrapper exists
+  document.addEventListener('DOMContentLoaded', () => {
+    const defaultWrapper = document.getElementById('loading-wrapper');
+    if (defaultWrapper) {
+      (window as any).loadingWrapper = new LoadingWrapper();
+    }
+  });
+</script>
+
+<style>
+  .loading-wrapper {
+    /* Ensure proper z-index stacking */
+  }
+  
+  .loading-hidden {
+    display: none !important;
+  }
+  
+  .loading-spinner {
+    /* Additional spinner styles if needed */
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 640px) {
+    .loading-wrapper .bg-white {
+      margin: 1rem;
+      max-width: calc(100vw - 2rem);
+    }
+  }
+</style>
