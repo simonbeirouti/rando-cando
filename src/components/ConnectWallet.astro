@@ -1,0 +1,60 @@
+<div id="connect-wrap" class="flex items-center gap-2 text-sm" aria-live="polite">
+    <div class="ellipsis overflow-hidden text-ellipsis whitespace-nowrap max-w-32 text-purple-300"></div>
+    <button style="display:none" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-full text-xs font-medium transition-colors" data-connect aria-controls="connect-wrap">
+        🔗 Connect
+    </button>
+    <button style="display:none" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-full text-xs font-medium transition-colors" data-disconnect aria-controls="connect-wrap">
+        ❌ Disconnect
+    </button>
+</div>
+
+<script>
+    import { getPublicKey, connect, disconnect } from "../stellar-wallets-kit";
+
+    const ellipsis = document.querySelector(
+        "#connect-wrap .ellipsis",
+    ) as HTMLElement;
+    const connectButton = document.querySelector(
+        "[data-connect]",
+    ) as HTMLButtonElement;
+    const disconnectButton = document.querySelector(
+        "[data-disconnect]",
+    ) as HTMLButtonElement;
+
+    async function showDisconnected() {
+        ellipsis.innerHTML = "";
+        ellipsis.removeAttribute("title");
+        connectButton.style.removeProperty("display");
+        disconnectButton.style.display = "none";
+        // Dispatch event for mobile logout button
+        document.dispatchEvent(new CustomEvent('walletStateChanged'));
+    }
+
+    async function showConnected() {
+        const publicKey = await getPublicKey();
+        if (publicKey) {
+            ellipsis.innerHTML = `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`;
+            ellipsis.title = publicKey ?? "";
+            connectButton.style.display = "none";
+            disconnectButton.style.removeProperty("display");
+        } else {
+            showDisconnected();
+        }
+        // Dispatch event for mobile logout button
+        document.dispatchEvent(new CustomEvent('walletStateChanged'));
+    }
+
+    connectButton.addEventListener("click", async () => {
+        await connect(showConnected);
+    });
+
+    disconnectButton.addEventListener("click", async () => {
+        disconnect(showDisconnected);
+    });
+
+    if (await getPublicKey()) {
+        showConnected();
+    } else {
+        showDisconnected();
+    }
+</script>
