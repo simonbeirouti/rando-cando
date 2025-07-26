@@ -7,7 +7,6 @@ export interface LoadingOptions {
 export interface SuccessOptions {
   title?: string;
   message?: string;
-  transactionId?: string;
   onClose?: () => void;
 }
 
@@ -76,17 +75,42 @@ export function showTransactionLoading(message: string = "Processing transaction
   });
 }
 
-export function showTransactionSuccess(transactionId: string, message?: string) {
+export function showTransactionSuccess(message?: string) {
   showSuccess({
     title: "Transaction Successful",
-    message: message || "Your transaction has been completed successfully.",
-    transactionId
+    message: message || "Your transaction has been completed successfully."
   });
 }
 
 export function showTransactionError(error: any) {
   const message = error instanceof Error ? error.message : 'Transaction failed. Please try again.';
   showError({
+    title: "Transaction Failed",
+    message
+  });
+}
+
+// Set pending states that will be shown when loading is dismissed
+export function setPendingSuccess(options?: SuccessOptions) {
+  const wrapper = getLoadingWrapper();
+  wrapper?.setPendingSuccess(options || { title: "Success!", message: "Operation completed successfully." });
+}
+
+export function setPendingError(options?: ErrorOptions) {
+  const wrapper = getLoadingWrapper();
+  wrapper?.setPendingError(options || { title: "Error", message: "An error occurred." });
+}
+
+export function setPendingTransactionSuccess(message?: string) {
+  setPendingSuccess({
+    title: "Transaction Successful",
+    message: message || "Your transaction has been completed successfully."
+  });
+}
+
+export function setPendingTransactionError(error: any) {
+  const message = error instanceof Error ? error.message : 'Transaction failed. Please try again.';
+  setPendingError({
     title: "Transaction Failed",
     message
   });

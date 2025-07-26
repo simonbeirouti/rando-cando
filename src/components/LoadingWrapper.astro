@@ -25,10 +25,6 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
       <div class="text-6xl mb-4">✅</div>
       <div class="success-title text-xl font-semibold text-white mb-2">Success!</div>
       <div class="success-message text-sm text-gray-200 mb-4">Operation completed successfully.</div>
-      <div class="transaction-info loading-hidden mb-4">
-        <div class="text-xs text-gray-300 mb-2">Transaction ID:</div>
-        <div class="transaction-id text-xs font-mono bg-gray-800 text-white p-3 rounded border break-all"></div>
-      </div>
       <button class="success-close-btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium transition-colors">
         Close
       </button>
@@ -58,7 +54,6 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
   interface SuccessOptions {
     title?: string;
     message?: string;
-    transactionId?: string;
     onClose?: () => void;
   }
 
@@ -73,6 +68,8 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
     private loadingState: HTMLElement;
     private successState: HTMLElement;
     private errorState: HTMLElement;
+    private pendingSuccessOptions: SuccessOptions | null = null;
+    private pendingErrorOptions: ErrorOptions | null = null;
 
     constructor(wrapperId: string = "loading-wrapper") {
       this.wrapper = document.getElementById(wrapperId) as HTMLElement;
@@ -97,12 +94,30 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
       errorCloseBtn?.addEventListener('click', () => this.hideError());
 
       // Close on backdrop click
-      [this.loadingState, this.successState, this.errorState].forEach(state => {
-        state.addEventListener('click', (e) => {
-          if (e.target === state) {
-            this.hideAll();
+      this.loadingState.addEventListener('click', (e) => {
+        if (e.target === this.loadingState) {
+          this.hideLoading();
+          // Show pending success/error state if available
+          if (this.pendingSuccessOptions) {
+            this.showSuccess(this.pendingSuccessOptions);
+            this.pendingSuccessOptions = null;
+          } else if (this.pendingErrorOptions) {
+            this.showError(this.pendingErrorOptions);
+            this.pendingErrorOptions = null;
           }
-        });
+        }
+      });
+      
+      this.successState.addEventListener('click', (e) => {
+        if (e.target === this.successState) {
+          this.hideSuccess();
+        }
+      });
+      
+      this.errorState.addEventListener('click', (e) => {
+        if (e.target === this.errorState) {
+          this.hideError();
+        }
       });
 
       // Close on Escape key
@@ -132,7 +147,6 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
       const { 
         title = "Success!", 
         message = "Operation completed successfully.",
-        transactionId,
         onClose
       } = options;
       
@@ -140,18 +154,9 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
       
       const titleEl = this.successState.querySelector('.success-title') as HTMLElement;
       const messageEl = this.successState.querySelector('.success-message') as HTMLElement;
-      const transactionInfo = this.successState.querySelector('.transaction-info') as HTMLElement;
-      const transactionIdEl = this.successState.querySelector('.transaction-id') as HTMLElement;
       
       if (titleEl) titleEl.textContent = title;
       if (messageEl) messageEl.textContent = message;
-      
-      if (transactionId && transactionInfo && transactionIdEl) {
-        transactionIdEl.textContent = transactionId;
-        transactionInfo.classList.remove('loading-hidden');
-      } else if (transactionInfo) {
-        transactionInfo.classList.add('loading-hidden');
-      }
       
       this.successState.classList.remove('loading-hidden');
       document.body.style.overflow = 'hidden';
@@ -217,6 +222,19 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
       this.hideLoading();
       this.hideSuccess();
       this.hideError();
+      this.pendingSuccessOptions = null;
+      this.pendingErrorOptions = null;
+    }
+
+    // Set pending states that will be shown when loading is dismissed
+    setPendingSuccess(options: SuccessOptions) {
+      this.pendingSuccessOptions = options;
+      this.pendingErrorOptions = null; // Clear any pending error
+    }
+
+    setPendingError(options: ErrorOptions) {
+      this.pendingErrorOptions = options;
+      this.pendingSuccessOptions = null; // Clear any pending success
     }
 
     // Utility method for async operations
