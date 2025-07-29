@@ -68,8 +68,8 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
     private loadingState: HTMLElement;
     private successState: HTMLElement;
     private errorState: HTMLElement;
-    private pendingSuccessOptions: SuccessOptions | null = null;
-    private pendingErrorOptions: ErrorOptions | null = null;
+    private successTimer: NodeJS.Timeout | null = null;
+    private errorTimer: NodeJS.Timeout | null = null;
 
     constructor(wrapperId: string = "loading-wrapper") {
       this.wrapper = document.getElementById(wrapperId) as HTMLElement;
@@ -93,36 +93,16 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
       const errorCloseBtn = this.errorState.querySelector('.error-close-btn') as HTMLElement;
       errorCloseBtn?.addEventListener('click', () => this.hideError());
 
-      // Close on backdrop click
-      this.loadingState.addEventListener('click', (e) => {
-        if (e.target === this.loadingState) {
-          this.hideLoading();
-          // Show pending success/error state if available
-          if (this.pendingSuccessOptions) {
-            this.showSuccess(this.pendingSuccessOptions);
-            this.pendingSuccessOptions = null;
-          } else if (this.pendingErrorOptions) {
-            this.showError(this.pendingErrorOptions);
-            this.pendingErrorOptions = null;
-          }
-        }
-      });
+      // Loading state is now non-clickable - no backdrop click to dismiss
+      // Success and error states keep their close buttons but no backdrop click
       
-      this.successState.addEventListener('click', (e) => {
-        if (e.target === this.successState) {
-          this.hideSuccess();
-        }
-      });
-      
-      this.errorState.addEventListener('click', (e) => {
-        if (e.target === this.errorState) {
-          this.hideError();
-        }
-      });
-
-      // Close on Escape key
+      // Escape key disabled for loading state, but kept for success/error states
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+          // Only allow escape to close success/error states, not loading
+          if (!this.loadingState.classList.contains('loading-hidden')) {
+            return; // Don't close if loading is visible
+          }
           this.hideAll();
         }
       });
@@ -166,6 +146,17 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
         this.successState.setAttribute('data-on-close', 'true');
         (this.successState as any)._onClose = onClose;
       }
+
+      // Clear any existing timer
+      if (this.successTimer) {
+        clearTimeout(this.successTimer);
+      }
+
+      // Auto-close after 3 seconds
+      this.successTimer = setTimeout(() => {
+        this.hideSuccess();
+        this.successTimer = null;
+      }, 3000);
     }
 
     showError(options: ErrorOptions = {}) {
@@ -191,6 +182,17 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
         this.errorState.setAttribute('data-on-close', 'true');
         (this.errorState as any)._onClose = onClose;
       }
+
+      // Clear any existing timer
+      if (this.errorTimer) {
+        clearTimeout(this.errorTimer);
+      }
+
+      // Auto-close after 3 seconds
+      this.errorTimer = setTimeout(() => {
+        this.hideError();
+        this.errorTimer = null;
+      }, 3000);
     }
 
     hideLoading() {
@@ -199,6 +201,12 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
     }
 
     hideSuccess() {
+      // Clear auto-close timer if it exists
+      if (this.successTimer) {
+        clearTimeout(this.successTimer);
+        this.successTimer = null;
+      }
+      
       const onClose = (this.successState as any)._onClose;
       this.successState.classList.add('loading-hidden');
       document.body.style.overflow = '';
@@ -209,6 +217,12 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
     }
 
     hideError() {
+      // Clear auto-close timer if it exists
+      if (this.errorTimer) {
+        clearTimeout(this.errorTimer);
+        this.errorTimer = null;
+      }
+      
       const onClose = (this.errorState as any)._onClose;
       this.errorState.classList.add('loading-hidden');
       document.body.style.overflow = '';
@@ -222,19 +236,6 @@ const { id = "loading-wrapper", className = "" } = Astro.props;
       this.hideLoading();
       this.hideSuccess();
       this.hideError();
-      this.pendingSuccessOptions = null;
-      this.pendingErrorOptions = null;
-    }
-
-    // Set pending states that will be shown when loading is dismissed
-    setPendingSuccess(options: SuccessOptions) {
-      this.pendingSuccessOptions = options;
-      this.pendingErrorOptions = null; // Clear any pending error
-    }
-
-    setPendingError(options: ErrorOptions) {
-      this.pendingErrorOptions = options;
-      this.pendingSuccessOptions = null; // Clear any pending success
     }
 
     // Utility method for async operations
