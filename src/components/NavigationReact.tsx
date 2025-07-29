@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X, Wallet } from 'lucide-react';
+import '../types/global.d.ts'; // Import TypeScript declarations for appkit-button
 
 interface NavigationReactProps {
   className?: string;
@@ -113,27 +114,41 @@ export default function NavigationReact({ className }: NavigationReactProps) {
                 {label}
               </a>
             ))}
+            {/* Stellar Wallet Button */}
             <Button 
               className={isConnected ? "bg-green-600 hover:bg-green-700" : "bg-purple-600 hover:bg-purple-700"}
               onClick={isConnected ? handleDisconnect : handleConnect}
               disabled={isConnecting}
+              size="sm"
             >
               <Wallet size={16} className="mr-2" />
-              {isConnecting ? 'Connecting...' : isConnected ? (publicKey ? formatPublicKey(publicKey) : 'Connected') : 'Connect Wallet'}
+              <span className="text-xs">XLM</span>
+              <span className="ml-1">
+                {isConnecting ? 'Connecting...' : isConnected ? (publicKey ? formatPublicKey(publicKey) : 'Connected') : 'Connect'}
+              </span>
             </Button>
+            {/* Reown AppKit EVM Wallet Button */}
+            <div className="flex items-center">
+              <appkit-button />
+            </div>
           </div>
           
           {/* Mobile menu and wallet buttons */}
           <div className="md:hidden flex items-center gap-2">
+            {/* Stellar Wallet Button */}
             <Button
               size="sm"
               className={isConnected ? "bg-green-600 hover:bg-green-700 p-2" : "bg-purple-600 hover:bg-purple-700 p-2"}
               onClick={isConnected ? handleDisconnect : handleConnect}
               disabled={isConnecting}
-              aria-label={isConnected ? 'Disconnect Wallet' : 'Connect Wallet'}
+              aria-label={isConnected ? 'Disconnect Stellar Wallet' : 'Connect Stellar Wallet'}
             >
               <Wallet size={16} />
             </Button>
+            {/* Reown AppKit EVM Wallet Button - Mobile */}
+            <div className="flex items-center">
+              <appkit-button />
+            </div>
             <Button
               variant="ghost"
               size="sm"

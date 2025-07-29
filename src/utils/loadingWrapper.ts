@@ -90,28 +90,7 @@ export function showTransactionError(error: any) {
   });
 }
 
-// Set pending states that will be shown when loading is dismissed
-export function setPendingSuccess(options?: SuccessOptions) {
-  const wrapper = getLoadingWrapper();
-  wrapper?.setPendingSuccess(options || { title: "Success!", message: "Operation completed successfully." });
-}
+// Note: Pending state functions removed - loading wrapper is now non-clickable
+// Use showSuccess() and showError() directly instead
 
-export function setPendingError(options?: ErrorOptions) {
-  const wrapper = getLoadingWrapper();
-  wrapper?.setPendingError(options || { title: "Error", message: "An error occurred." });
-}
 
-export function setPendingTransactionSuccess(message?: string) {
-  setPendingSuccess({
-    title: "Transaction Successful",
-    message: message || "Your transaction has been completed successfully."
-  });
-}
-
-export function setPendingTransactionError(error: any) {
-  const message = error instanceof Error ? error.message : 'Transaction failed. Please try again.';
-  setPendingError({
-    title: "Transaction Failed",
-    message
-  });
-}

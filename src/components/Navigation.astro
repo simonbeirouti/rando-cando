@@ -1,8 +1,14 @@
 ---
 import NavigationReact from "./NavigationReact.tsx";
+import ReownProvider from "../context/ReownProvider.tsx";
+
+// Get cookies for SSR hydration
+const cookies = Astro.request.headers.get('cookie');
 ---
 
-<NavigationReact client:load />
+<ReownProvider cookies={cookies} client:load>
+  <NavigationReact client:load />
+</ReownProvider>
 
 <script>
   import { getPublicKey, connect, disconnect } from "../stellar-wallets-kit";

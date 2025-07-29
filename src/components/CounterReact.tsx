@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { showTransactionLoading, showTransactionError, showLoading, setPendingTransactionSuccess, setPendingTransactionError, setPendingSuccess } from '@/utils/loadingWrapper';
+import { showTransactionLoading, showTransactionError, showLoading, showTransactionSuccess, hideAll } from '@/utils/loadingWrapper';
 
 interface CounterReactProps {
   className?: string;
@@ -58,13 +58,15 @@ export default function CounterReact({ className }: CounterReactProps) {
       if (simulationResult.result !== undefined && simulationResult.result !== null) {
         const blockchainValue = simulationResult.result;
         setCurrentValue(blockchainValue.toString());
-        setPendingSuccess({ title: "Value Retrieved", message: `Current value: ${blockchainValue}` });
+        hideAll(); // Hide loading first
+        showTransactionSuccess(`Value Retrieved: ${blockchainValue}`);
       } else {
         throw new Error('Failed to retrieve value from blockchain');
       }
     } catch (err: any) {
       console.error('Error fetching blockchain value:', err);
-      setPendingTransactionError(err);
+      hideAll(); // Hide loading first
+      showTransactionError(err);
     } finally {
       setLoadingStates(prev => ({ ...prev, getValue: false }));
     }
@@ -115,9 +117,11 @@ export default function CounterReact({ className }: CounterReactProps) {
         
         if (newValue !== null) {
           setCurrentValue(newValue.toString());
-          setPendingTransactionSuccess(`Counter incremented to ${newValue}`);
+          hideAll(); // Hide loading first
+          showTransactionSuccess(`Counter incremented to ${newValue}`);
         } else {
-          setPendingTransactionSuccess('Counter incremented successfully!');
+          hideAll(); // Hide loading first
+          showTransactionSuccess('Counter incremented successfully!');
         }
       } else {
         throw new Error('Transaction failed or returned no result');
@@ -126,7 +130,10 @@ export default function CounterReact({ className }: CounterReactProps) {
       console.error('Error incrementing:', err);
       // Only show error if it's not a "Bad union switch" that we handled
       if (!err?.message?.includes("Bad union switch")) {
-        setPendingTransactionError(err);
+        hideAll(); // Hide loading first
+        showTransactionError(err);
+      } else {
+        hideAll(); // Hide loading even for handled errors
       }
     } finally {
       setLoadingStates(prev => ({ ...prev, increment: false }));
@@ -178,9 +185,11 @@ export default function CounterReact({ className }: CounterReactProps) {
         
         if (newValue !== null) {
           setCurrentValue(newValue.toString());
-          setPendingTransactionSuccess(`Counter decremented to ${newValue}`);
+          hideAll(); // Hide loading first
+          showTransactionSuccess(`Counter decremented to ${newValue}`);
         } else {
-          setPendingTransactionSuccess('Counter decremented successfully!');
+          hideAll(); // Hide loading first
+          showTransactionSuccess('Counter decremented successfully!');
         }
       } else {
         throw new Error('Transaction failed or returned no result');
@@ -189,7 +198,10 @@ export default function CounterReact({ className }: CounterReactProps) {
       console.error('Error decrementing:', err);
       // Only show error if it's not a "Bad union switch" that we handled
       if (!err?.message?.includes("Bad union switch")) {
-        setPendingTransactionError(err);
+        hideAll(); // Hide loading first
+        showTransactionError(err);
+      } else {
+        hideAll(); // Hide loading even for handled errors
       }
     } finally {
       setLoadingStates(prev => ({ ...prev, decrement: false }));
@@ -241,9 +253,11 @@ export default function CounterReact({ className }: CounterReactProps) {
         
         if (newValue !== null) {
           setCurrentValue(newValue.toString());
-          setPendingTransactionSuccess(`Counter reset to ${newValue}`);
+          hideAll(); // Hide loading first
+          showTransactionSuccess(`Counter reset to ${newValue}`);
         } else {
-          setPendingTransactionSuccess('Counter reset successfully!');
+          hideAll(); // Hide loading first
+          showTransactionSuccess('Counter reset successfully!');
         }
       } else {
         throw new Error('Transaction failed or returned no result');
@@ -252,7 +266,10 @@ export default function CounterReact({ className }: CounterReactProps) {
       console.error('Error resetting:', err);
       // Only show error if it's not a "Bad union switch" that we handled
       if (!err?.message?.includes("Bad union switch")) {
-        setPendingTransactionError(err);
+        hideAll(); // Hide loading first
+        showTransactionError(err);
+      } else {
+        hideAll(); // Hide loading even for handled errors
       }
     } finally {
       setLoadingStates(prev => ({ ...prev, reset: false }));
